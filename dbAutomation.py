@@ -29,13 +29,15 @@ def procesing_data(path):
     return df, col_str
 
 
-def connecting_db(df, db_name, my_file):
+def connecting_db(db_name):
     # connecting to the database
-    db_conn = psycopg2.connect("dbname= {0} user=caaturday".format(db_name))
-    cur = db_conn.cursor()
+    conn = psycopg2.connect("dbname= {0} user=caaturday".format(db_name))
+    cur = conn.cursor()
     print("Opened Database Successfully")
     
-    
+    return conn, cur, my_file
+
+def to_csv(df, my_file):
     #save df to csv
     df.to_csv("{0}.csv".format(my_file), header=df.columns, index=False, encoding='utf-8')
     
@@ -43,17 +45,26 @@ def connecting_db(df, db_name, my_file):
     my_file = open("{0}.csv".format(my_file))
     print('file opened in memory')
     
-    return db_conn, cur, my_file
+    return my_file
 
 
-def table(tbl_name, col_str, db_conn, cur):
+def drop_table(tbl_name, cur):
+    SQL_STATEMENT = """
+    DROP TABLE %s 
+    """
+    cur.execute(SQL_STATEMENT % tbl_name)
+    conn.commit()
+    print('table dropped succesfully')
+
+
 # create table 
-    
+def create_table(tbl_name, col_str, cur):
     cur.execute("create table %s (%s);" % (tbl_name, col_str))
     print('{0} was created successfully'.format(tbl_name)) 
-    
-    
-    #upload to db
+
+
+# populate database with data
+def database_pop(tbl_name, cur, my_file):
     SQL_STATEMENT = """
     COPY %s FROM STDIN WITH
         CSV
@@ -62,23 +73,47 @@ def table(tbl_name, col_str, db_conn, cur):
     """
     cur.copy_expert(sql=SQL_STATEMENT % tbl_name, file=my_file)
     print('file copied to db')
-    
-    
-    db_conn.commit()
+
+# commit and close 
+def close_db(conn, cur):
+    conn.commit()
     cur.close()
-    print('table {0} imported to db completed'.format(tbl_name))
+    print('data imported to db completed')
 
 
 # In[3]
 
-path = 'SQL/Corona Virus Project/CovidVaccinations'
-db_name = 'covid_vacc'
-my_file = 'CovidVaccinations'
-tbl_name = 'CovidVaccinations'
+############################################ TABLE ONE 
+path = 'SQL/Corona Virus Project/CovidDeaths'
+db_name = 'covid_project'
+my_file = 'CovidDeaths'
 
 df, col_str = procesing_data(path)
-db_conn, cur, my_file = connecting_db(df, db_name, my_file)
-table(tbl_name, col_str, db_conn, cur)
+my_file = to_csv(df, 'CovidDeaths')
 
-# In[4]
-## clean up functions and update db to hold both covid csv files as two tables. 
+
+#    CONNECTING TO DB
+
+conn, cur, my_file = connecting_db(db_name) 
+
+drop_table('CovidDeaths', cur) # drop table that already exists in covid_projects db
+create_table('CovidDeaths', col_str, cur)
+database_pop('CovidDeaths', cur, my_file)
+
+
+############################################   SECOND TABLE 
+path = 'SQL/Corona Virus Project/CovidVaccinations'
+my_file = 'CovidVaccinations'
+
+df, col_str = procesing_data(path)
+my_file = to_csv(df, 'CovidDeaths')
+
+drop_table('CovidVaccinations', cur) # drop table that already exists in covid_projects db
+create_table('CovidVaccinations', col_str, cur)
+database_pop('CovidVaccinations', cur, my_file)
+
+
+
+close_db(conn, cur)
+
+
