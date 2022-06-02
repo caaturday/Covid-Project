@@ -62,6 +62,7 @@ SELECT continent, MAX(cast(total_deaths as int)) as TotalDeathCount
  GROUP BY continent
  ORDER BY TotalDeathCount DESC;
 
+
 -- GLOBAL NUMBERS
 
 SELECT SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(new_cases) *100 as DeathPercentage
@@ -98,14 +99,4 @@ WITH PopvsVac (Continent, Location, Date, Population, new_vaccinations, RollingP
     )
     SELECT *, (RollingPeopleVaccinated/population)*100
     FROM PopvsVac;
-
-CREATE VIEW percpopulationvaccinated as 
-SELECT dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations, 
-SUM(CAST(vac.new_vaccinations as int)) OVER (PARTITION BY dea.location ORDER BY dea.location, dea.date) as RollingPeopleVaccinated 
-FROM coviddeaths dea
-JOIN covidvaccinations vac
-    ON dea.location = vac.location
-    AND dea.date = vac.date
-WHERE dea.continent is not NULL;
---ORDER BY 2,3;
 
